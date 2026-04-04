@@ -60,3 +60,23 @@ campus: meta.campus || '',
 studentNumber: meta.student_number || '',
 };
 }
+/* ---------- OTP verification (sign-up email confirmation) ---------- */
+async function verifyOTP(email, token) {
+const { data, error } = await _sb.auth.verifyOtp({
+email, token, type: 'signup'
+});
+if (error) return { error: error.message };
+if (data.user) {
+const meta = data.user.user_metadata || {};
+await _sb.from('users').upsert({
+id: data.user.id,
+full_name: meta.full_name,
+email: data.user.email,
+account_type: meta.account_type || 'buyer',
+university: meta.university || null,
+uni_campus: meta.campus || null,
+student_number: meta.student_number || null,
+});
+}
+return { success: true };
+}
