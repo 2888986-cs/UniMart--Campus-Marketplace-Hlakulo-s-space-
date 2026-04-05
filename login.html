@@ -33,3 +33,54 @@ Don't have an account? <a href="signup.html">Create one</a>
 </div>
 </div>
 </body>
+<script src="https://cdn.jsdelivr.net/.../supabase.min.js"></script>
+<script src="auth.js"></script>
+<script>
+// Redirect if already logged in
+Auth.getUser().then(user => {
+if (user) window.location.href = 'search.html';
+});
+/* ---- Password toggle ---- */
+const icons = {
+hidden: `<span class="ui-icon"><svg ...eye open.../></span>`,
+visible: `<span class="ui-icon"><svg ...eye closed.../></span>`
+};
+const pwToggle = document.getElementById('pw-toggle');
+pwToggle.innerHTML = icons.hidden;
+pwToggle.addEventListener('click', function () {
+const inp = document.getElementById('login-password');
+inp.type = inp.type === 'password' ? 'text' : 'password';
+this.innerHTML = inp.type === 'password' ? icons.hidden : icons.visible;
+});
+/* ---- Login form ---- */
+document.getElementById('login-form')
+.addEventListener('submit', async function (e) {
+e.preventDefault();
+clearErrors();
+const email = document.getElementById('login-email').value.trim();
+const password = document.getElementById('login-password').value;
+let valid = true;
+if (!email)
+{ showError('email-error', 'Email is required.'); valid = false; }
+else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+{ showError('email-error', 'Enter a valid email.'); valid = false; }
+if (!password)
+{ showError('password-error', 'Password is required.'); valid = false; }
+if (!valid) return;
+const btn = document.getElementById('login-btn');
+btn.textContent = 'Signing in…'; btn.disabled = true;
+const result = await Auth.signIn({ email, password });
+btn.textContent = 'Sign in'; btn.disabled = false;
+if (result.error) { showError('login-error', result.error); return; }
+window.location.href = 'search.html';
+});
+function clearErrors() {
+document.querySelectorAll('.form-error').forEach(el => {
+el.textContent = ''; el.classList.remove('visible');
+});
+}
+function showError(id, msg) {
+const el = document.getElementById(id);
+if (el) { el.textContent = msg; el.classList.add('visible'); }
+}
+</script>
