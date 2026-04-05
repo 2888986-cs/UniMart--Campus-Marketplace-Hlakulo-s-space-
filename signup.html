@@ -1,0 +1,105 @@
+<!-- Step 1: choose account type -->
+<div id="step-type" class="auth-step active">
+<div class="auth-header">
+<h1>Create account</h1>
+<p>What best describes you?</p>
+</div>
+<div class="account-type-group">
+<label class="account-type-option" id="opt-buyer">
+<input type="radio" name="account-type"
+value="buyer" style="display:none" />
+<div>
+<strong>Buyer</strong>
+<p>Browse and buy items from other students</p>
+</div>
+</label>
+<label class="account-type-option" id="opt-seller">
+<input type="radio" name="account-type"
+value="seller_buyer" style="display:none" />
+<div>
+<strong>Seller / Buyer</strong>
+<p>List items for sale and browse the marketplace</p>
+</div>
+</label>
+</div>
+<button id="next-type-btn" class="btn btn-primary btn-full btn-lg"
+style="margin-top:20px" disabled>Continue</button>
+</div>
+
+<!-- Step 2: personal + campus details -->
+<div id="step-details" class="auth-step">
+<form class="auth-form" id="signup-form" novalidate>
+<div class="auth-form-grid">
+<div class="form-group">
+<label class="form-label">Full name</label>
+<input class="form-input" id="su-name" type="text"
+placeholder="Your full name" required />
+<span class="form-error" id="name-error"></span>
+</div>
+<div class="form-group">
+<label class="form-label">Email address</label>
+<input class="form-input" id="su-email" type="email"
+placeholder="you@university.edu" required />
+<span class="form-error" id="su-email-error"></span>
+</div>
+</div>
+<div class="form-group">
+<label class="form-label">Password</label>
+<div class="input-wrapper">
+<input class="form-input" id="su-password" type="password"
+placeholder="Minimum 8 characters" required />
+<button type="button" class="input-toggle" id="su-pw-toggle"></button>
+</div>
+<span class="form-error" id="su-pw-error"></span>
+</div>
+<div class="form-group">
+<label class="form-label">University (optional)</label>
+<input class="form-input" id="su-uni" type="text"
+placeholder="e.g. University of Pretoria" />
+</div>
+<div class="auth-form-grid">
+<div class="form-group">
+<label class="form-label">Campus (optional)</label>
+<input class="form-input" id="su-campus" type="text"
+placeholder="e.g. Hatfield" />
+</div>
+<div class="form-group">
+<label class="form-label">Student number (optional)</label>
+<input class="form-input" id="su-student" type="text"
+placeholder="e.g. u12345678" />
+</div>
+</div>
+<div class="form-error" id="su-general-error"
+style="text-align:center"></div>
+<button type="submit" class="btn btn-primary btn-full btn-lg"
+id="signup-btn">Create account</button>
+</form>
+</div>
+
+<!-- Step 3: email OTP confirmation -->
+<div id="step-otp" class="auth-step">
+<div style="text-align:center; margin-bottom:20px">
+<div class="verify-icon">
+<span class="ui-icon ui-icon-lg">
+<svg viewBox="0 0 20 20" ...envelope icon.../>
+</span>
+</div>
+<h1 style="margin-bottom:6px">Verify your email</h1>
+<p id="otp-email-hint">
+Enter the 6-digit code sent to your email address.
+</p>
+</div>
+<div class="otp-input-group" id="otp-inputs">
+<input class="otp-input" maxlength="1" type="text"
+inputmode="numeric" pattern="[0-9]" />
+<!-- × 6 inputs -->
+</div>
+<div class="form-error" id="otp-error"
+style="text-align:center;margin-top:8px"></div>
+<button class="btn btn-primary btn-full btn-lg"
+id="verify-btn" style="margin-top:16px" disabled>Verify</button>
+<div class="auth-footer">
+Didn't receive a code?
+<a href="#" id="resend-link">Resend</a>
+</div>
+</div>
