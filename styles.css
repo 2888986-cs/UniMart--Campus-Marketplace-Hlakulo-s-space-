@@ -142,3 +142,21 @@ background: rgba(42,42,32,.45); z-index: 90; }
 .auth-form-grid { grid-template-columns: 1fr; gap: 16px; }
 .page-header h1 { font-size: 1.35rem; }
 }
+/* ===== AUTH PAGE ===== */
+.auth-page { min-height: 100vh; display: flex;
+align-items: center; justify-content: center; padding: 24px; }
+.auth-card { background: #fff; border: 1px solid var(--border);
+border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+padding: 40px; width: 100%; max-width: 460px; }
+.auth-logo { display: flex; justify-content: center;
+align-items: center; margin-bottom: 24px; }
+.logo-img { max-width: 280px; width: 100%; height: auto; }
+.auth-header { margin-bottom: 24px; }
+.auth-header h1 { margin-bottom: 4px; }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-form-link-row { display: flex; justify-content: flex-end; margin-top: -4px; }
+.auth-form-link-row a { font-size: .83rem; color: var(--sage); font-weight: 600; }
+.auth-form-submit { margin-top: 4px; }
+.auth-footer { text-align: center; margin-top: 20px;
+font-size: .85rem; color: var(--muted); }
+.auth-footer a { color: var(--sage); font-weight: 600; }
