@@ -30,3 +30,48 @@ toast.style.transition = 'all .25s ease';
 setTimeout(() => toast.remove(), 260);
 }, duration);
 }
+
+/* ---- Populate user info across the shell ---- */
+function populateUserShell(user) {
+const nameEls = document.querySelectorAll('[data-user-name]');
+const roleEls = document.querySelectorAll('[data-user-role]');
+const initEls = document.querySelectorAll('[data-user-initials]');
+const initials = Auth.getUserInitials(user.fullName);
+const roleLabel = user.accountType === 'seller_buyer'
+? 'Seller / Buyer' : 'Buyer';
+nameEls.forEach(el => el.textContent = user.fullName);
+roleEls.forEach(el => el.textContent = roleLabel);
+initEls.forEach(el => el.textContent = initials);
+}
+/* ---- Dropdown toggle ---- */
+function initDropdowns() {
+document.querySelectorAll('[data-dropdown-trigger]').forEach(trigger => {
+const menuId = trigger.getAttribute('data-dropdown-trigger');
+const menu = document.getElementById(menuId);
+if (!menu) return;
+trigger.addEventListener('click', e => {
+e.stopPropagation();
+menu.classList.toggle('open');
+});
+});
+document.addEventListener('click', () => {
+document.querySelectorAll('.dropdown-menu.open')
+.forEach(m => m.classList.remove('open'));
+});
+}
+/* ---- Mobile sidebar toggle ---- */
+function initMobileSidebar() {
+const toggle = document.getElementById('sidebar-toggle');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebar-overlay');
+if (!toggle || !sidebar) return;
+const close = () => {
+sidebar.classList.remove('open');
+overlay?.classList.remove('show');
+};
+toggle.addEventListener('click', () => {
+sidebar.classList.toggle('open');
+overlay?.classList.toggle('show');
+});
+overlay?.addEventListener('click', close);
+}
