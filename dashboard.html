@@ -1,0 +1,71 @@
+<!-- Four stat cards -->
+<div class="stat-cards">
+<div class="stat-card">
+<div class="stat-label">Active Listings</div>
+<div class="stat-value" id="stat-active">—</div>
+<div class="stat-sub">Currently live</div>
+</div>
+<div class="stat-card">
+<div class="stat-label">Sold</div>
+<div class="stat-value" id="stat-sold">—</div>
+<div class="stat-sub">All time</div>
+</div>
+<div class="stat-card accent">
+<div class="stat-label">Active Value</div>
+<div class="stat-value" id="stat-value">—</div>
+<div class="stat-sub">Total listed value</div>
+</div>
+<div class="stat-card">
+<div class="stat-label">This Month</div>
+<div class="stat-value" id="stat-month">—</div>
+<div class="stat-sub">New listings</div>
+</div>
+</div>
+
+<!-- Monthly bar chart (canvas) -->
+<div class="dash-card">
+<h3>Listings Over Time</h3>
+<canvas id="monthly-chart" height="160"></canvas>
+</div>
+<!-- Category breakdown -->
+<div class="dash-card">
+<h3>By Category</h3>
+<div id="category-bars"></div>
+</div>
+
+function renderMonthlyChart(monthly) {
+const canvas = document.getElementById('monthly-chart');
+const ctx = canvas.getContext('2d');
+const max = Math.max(...monthly.map(m => m.value), 1);
+const W = canvas.offsetWidth;
+const H = 160;
+canvas.width = W; canvas.height = H;
+const barW = Math.floor(W / monthly.length * 0.5);
+const gap = Math.floor(W / monthly.length);
+ctx.clearRect(0, 0, W, H);
+monthly.forEach((m, i) => {
+const x = i * gap + gap * 0.25;
+const barH = Math.max((m.value / max) * (H - 30), 2);
+ctx.fillStyle = '#3a6645';
+ctx.beginPath();
+ctx.roundRect(x, H - barH - 20, barW, barH, [4, 4, 0, 0]);
+ctx.fill();
+ctx.fillStyle = '#6b6b5a';
+ctx.font = '10px Inter, sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(m.label, x + barW / 2, H - 4);
+});
+}
+function renderCategories(categories) {
+const total = categories.reduce((s, c) => s + c.value, 0) || 1;
+const wrapper = document.getElementById('category-bars');
+wrapper.innerHTML = categories.map(c => `
+<div class="cat-row">
+<div class="cat-label">
+<span>${c.label}</span><span>${c.value}</span>
+</div>
+<div class="cat-track">
+<div class="cat-fill" style="width:${(c.value/total*100).toFixed(1)}%"></div>
+</div>
+</div>`).join('');
+}
