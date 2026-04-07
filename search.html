@@ -21,3 +21,103 @@
 <p id="empty-copy">Be the first to list something...</p>
 </div>
 <div class="listings-grid" id="listings-grid" style="display:none"></div>
+
+<script>
+if (window.innerWidth <= 768)
+document.getElementById('sidebar-toggle').style.display = 'flex';
+const state = { listings: [], query: '', category: 'all' };
+document.querySelectorAll('.filter-chip').forEach(chip => {
+chip.addEventListener('click', function () {
+document.querySelectorAll('.filter-chip')
+.forEach(c => c.classList.remove('active'));
+this.classList.add('active');
+state.category = this.dataset.category || 'all';
+renderListings();
+});
+});
+document.getElementById('listing-search').addEventListener('input', function () {
+state.query = this.value.trim().toLowerCase();
+renderListings();
+});
+initPage().then(user => {
+if (!user) return;
+const welcomed = sessionStorage.getItem('unimart_welcomed');
+if (!welcomed) {
+sessionStorage.setItem('unimart_welcomed', '1');
+showToast(`Welcome back, ${user.fullName.split(' ')[0]}!`, 'success');
+}
+loadListings();
+});
+async function loadListings() {
+const result = await Auth.getMarketplaceListings();
+if (result.error) { /* show error state */ return; }
+state.listings = result.listings || [];
+renderListings();
+}
+function renderListings() {
+const filtered = state.listings.filter(l => {
+const matchCat = state.category === 'all' || l.category === state.category;
+const haystack = [l.title, l.description, l.category, l.condition]
+.join(' ').toLowerCase();
+const matchQuery = !state.query || haystack.includes(state.query);
+return matchCat && matchQuery;
+});
+const grid = document.getElementById('listings-grid');
+const empty = document.getElementById('listings-empty');
+const metaEl = document.getElementById('results-meta');
+if (!filtered.length) {
+metaEl.textContent = `${filtered.length} listings found`;
+empty.style.display = 'flex'; grid.style.display = 'none';
+return;
+}
+empty.style.display = 'none'; grid.style.display = 'grid';
+grid.innerHTML = filtered.map(renderListingCard).join('');
+}
+function renderListingCard(l) {
+const desc = l.description
+? escapeHtml(l.description.length > 110
+? l.description.slice(0, 107) + '...' : l.description)
+: 'No description added yet.';
+return `
+<article class="listing-card">
+<div class="listing-card-header">
+<div>
+<div class="listing-card-title">${escapeHtml(l.title)}</div>
+<div class="listing-card-meta">
+${escapeHtml(l.category)} - ${formatDate(l.createdAt)}
+</div>
+</div>
+<div class="listing-price">${formatCurrency(l.price)}</div>
+</div>
+<div class="listing-description">${desc}</div>
+<div class="listing-tags">
+<span class="listing-tag">${escapeHtml(l.condition)}</span>
+${l.isTradeable
+? '<span class="listing-tag trade">Tradeable</span>' : ''}
+<span class="listing-tag">${escapeHtml(l.status)}</span>
+</div>
+<div class="listing-card-footer">
+<div class="listing-card-date">
+Seller ID: ${escapeHtml(shortId(l.sellerId))}
+</div>
+<div class="listing-card-action">View details soon</div>
+</div>
+</article>`;
+}
+function formatCurrency(v) {
+return new Intl.NumberFormat('en-ZA', {
+style: 'currency', currency: 'ZAR', maximumFractionDigits: 0
+}).format(v || 0);
+}
+function formatDate(v) {
+if (!v) return 'No date';
+return new Intl.DateTimeFormat('en-ZA',
+{ day: 'numeric', month: 'short', year: 'numeric' }
+).format(new Date(v));
+}
+function shortId(v) { return v ? v.slice(0, 8) + '...' : 'Unknown'; }
+function escapeHtml(v) {
+return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+.replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
