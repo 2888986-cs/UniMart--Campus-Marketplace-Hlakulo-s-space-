@@ -148,3 +148,58 @@ createdAt: listing.created_at,
 })),
 };
 }
+
+async function getListingDashboard(userId) {
+const { data, error } = await _sb
+.from('listings')
+.select('listing_id, title, price, category, status, created_at')
+.eq('seller_id', userId)
+.order('created_at', { ascending: false });
+if (error) return { error: error.message };
+const listings = data || [];
+const now = new Date();
+const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+// nn Metric totals nn
+const totals = listings.reduce((acc, l) => {
+const price = Number(l.price) || 0;
+const status = (l.status || '').toLowerCase();
+const date = l.created_at ? new Date(l.created_at) : null;
+if (status === 'active') { acc.activeListings++; acc.activeValue += price; }
+if (status === 'sold') acc.soldListings++;
+if (date && date >= monthStart) acc.thisMonth++;
+return acc;
+}, { activeListings: 0, soldListings: 0, activeValue: 0, thisMonth: 0 });
+// nn Category breakdown nn
+const catMap = listings.reduce((acc, l) => {
+const k = l.category || 'Uncategorised';
+acc[k] = (acc[k] || 0) + 1; return acc;
+}, {});
+const categories = Object.entries(catMap)
+.sort((a, b) => b[1] - a[1]).slice(0, 6)
+.map(([label, value]) => ({ label, value }));
+// nn 6-month trend nn
+const monthlyMap = {};
+for (let i = 5; i >= 0; i--) {
+const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+const key = `${d.getFullYear()}-${d.getMonth()}`;
+monthlyMap[key] = { label: d.toLocaleString('en-US', { month: 'short' }), value: 0 };
+}
+listings.forEach(l => {
+if (!l.created_at) return;
+const d = new Date(l.created_at);
+const key = `${d.getFullYear()}-${d.getMonth()}`;
+if (monthlyMap[key]) monthlyMap[key].value++;
+});
+return {
+success: true,
+metrics: totals,
+categories,
+monthly: Object.values(monthlyMap),
+recent: listings.slice(0, 5).map(l => ({
+id: l.listing_id, title: l.title || 'Untitled',
+category: l.category || 'Uncategorised',
+status: l.status || 'active', price: Number(l.price) || 0,
+createdAt: l.created_at,
+})),
+};
+}
