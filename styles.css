@@ -225,3 +225,43 @@ padding-top: 4px; border-top: 1px solid var(--sand); }
 .listings-grid { display: grid;
 grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 gap: 20px; }
+
+/* ===== STAT CARDS ===== */
+.stat-cards { display: grid;
+grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border: 1px solid var(--border);
+border-radius: var(--radius-lg); padding: 20px 22px; }
+.stat-card.accent { background: var(--sage); color: #fff;
+border-color: var(--sage); }
+.stat-card.accent .stat-label,
+.stat-card.accent .stat-sub { color: var(--mint); }
+.stat-label { font-size: .78rem; font-weight: 700;
+text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.stat-value { font-size: 1.75rem; font-weight: 800;
+color: var(--ink); line-height: 1.15; margin: 6px 0 4px; }
+.stat-card.accent .stat-value { color: #fff; }
+.stat-sub { font-size: .75rem; color: var(--muted); }
+/* ===== DASH CARD ===== */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.dash-card { background: #fff; border: 1px solid var(--border);
+border-radius: var(--radius-lg); padding: 22px; }
+.dash-card h3 { margin-bottom: 16px; }
+/* ===== CATEGORY BARS ===== */
+.cat-row { margin-bottom: 12px; }
+.cat-label { display: flex; justify-content: space-between;
+font-size: .8rem; margin-bottom: 5px; }
+.cat-track { height: 6px; background: var(--sand);
+border-radius: 999px; overflow: hidden; }
+.cat-fill { height: 100%; background: var(--sage); border-radius: 999px; }
+/* ===== RECENT TABLE ===== */
+.recent-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.recent-table th { text-align: left; padding: 8px 12px;
+font-size: .74rem; text-transform: uppercase;
+letter-spacing: .05em; color: var(--muted);
+border-bottom: 2px solid var(--border); }
+.recent-table td { padding: 11px 12px; border-bottom: 1px solid var(--sand); }
+.status-badge { display: inline-flex; padding: 3px 10px;
+border-radius: 999px; font-size: .72rem; font-weight: 700; }
+.status-active { background: var(--mint); color: var(--sage); }
+.status-sold { background: var(--sand); color: var(--muted); }
