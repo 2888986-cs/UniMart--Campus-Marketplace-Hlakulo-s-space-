@@ -284,3 +284,10 @@ flex-direction: column; gap: 10px; margin-bottom: 28px; }
 font-size: .875rem; color: var(--muted); }
 .feature-dot { width: 8px; height: 8px; border-radius: 50%;
 background: var(--border); flex-shrink: 0; }
+
+@media (max-width: 768px) {
+/* topbar search fills full width on mobile */
+.topbar-search { max-width: none; }
+/* ensure sidebar draws above the dim overlay */
+.sidebar { z-index: 101; }
+}
