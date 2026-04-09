@@ -179,3 +179,13 @@ document.querySelectorAll('.auth-step')
 document.getElementById(id).classList.add('active');
 }
 </script>
+
+// BEFORE (skipped last box):
+if (box.value && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
+// AFTER (correct):
+if (box.value && i < otpBoxes.length - 1) {
+otpBoxes[i + 1].focus();
+}
+// enable verify button when all 6 filled
+const code = [...otpBoxes].map(b => b.value).join('');
+document.getElementById('verify-btn').disabled = code.length < 6;
