@@ -291,3 +291,22 @@ background: var(--border); flex-shrink: 0; }
 /* ensure sidebar draws above the dim overlay */
 .sidebar { z-index: 101; }
 }
+
+/* ===== OTP INPUTS ===== */
+.otp-input-group { display: flex; justify-content: center; gap: 6px; }
+.otp-input { width: 40px; height: 50px; text-align: center;
+font-weight: 700; font-size: 1rem;
+border: 1px solid var(--border); border-radius: var(--radius);
+outline: none; }
+.otp-input:focus { border-color: var(--sage);
+box-shadow: 0 0 0 3px rgba(58,102,69,.12); }
+.verify-icon { width: 64px; height: 64px; border-radius: 50%;
+background: var(--sand); color: var(--sage);
+display: inline-flex; align-items: center;
+justify-content: center; margin-bottom: 16px; }
+/* ===== RESPONSIVE AUTH GRID ===== */
+@media (max-width: 600px) {
+.auth-card { padding: 24px 18px; }
+.auth-form-grid { grid-template-columns: 1fr; gap: 16px; }
+.otp-input { width: 34px; height: 42px; }
+}
