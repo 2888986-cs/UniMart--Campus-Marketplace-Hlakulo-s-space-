@@ -174,19 +174,15 @@ describe('setActiveNav', () => {
   });
 
   test('adds "active" class to the matching nav item', () => {
-    Object.defineProperty(window, 'location', {
-      value: { pathname: '/search.html' },
-      writable: true,
-    });
+    delete window.location;
+    window.location = { pathname: '/search.html' };
     setActiveNav();
     expect(document.querySelector('[data-page="search.html"]').classList.contains('active')).toBe(true);
   });
 
   test('does not add "active" to non-matching nav items', () => {
-    Object.defineProperty(window, 'location', {
-      value: { pathname: '/search.html' },
-      writable: true,
-    });
+    delete window.location;
+    window.location = { pathname: '/search.html' };
     setActiveNav();
     expect(document.querySelector('[data-page="listings.html"]').classList.contains('active')).toBe(false);
   });
