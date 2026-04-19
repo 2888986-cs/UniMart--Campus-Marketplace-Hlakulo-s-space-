@@ -112,6 +112,7 @@ async function initPage() {
   return user;
 }
 
+/* ---- Node.js exports for testing ---- */
 if (typeof module !== 'undefined') {
-  module.exports = { iconMarkup, getRoleLabel: null, populateUserShell, initDropdowns, setActiveNav, initMobileSidebar, initPage };
+  module.exports = { iconMarkup, showToast, populateUserShell, initDropdowns, setActiveNav, initMobileSidebar, initPage };
 }
