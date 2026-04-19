@@ -173,9 +173,14 @@ describe('Auth.updateCampusInfo', () => {
   });
 
   test('returns error when update fails', async () => {
-    const chain = makeChain({ error: { message: 'Update failed' } });
     jest.resetModules();
     global.window = { location: { href: '' } };
+    // updateCampusInfo does: _sb.from('users').update({...}).eq('id', id)
+    // .eq() is the terminal call — it must resolve with the error
+    const chain = {
+      update: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockResolvedValue({ error: { message: 'Update failed' } }),
+    };
     global.supabase = { createClient: jest.fn(() => ({ auth: makeSb().createClient().auth, from: jest.fn(() => chain), storage: makeSb().createClient().storage })) };
     const A = require('../auth.js').Auth;
     const r = await A.updateCampusInfo({ id: 'u1', university: 'UCT', campus: 'Main', studentNumber: 'S1' });
@@ -288,7 +293,21 @@ describe('Auth.deleteListing', () => {
   });
 
   test('returns error when delete fails', async () => {
-    const A = freshAuth(makeSb({ dbResolved: { error: { message: 'Delete failed' } } }));
+    jest.resetModules();
+    global.window = { location: { href: '' } };
+    // deleteListing does: _sb.from().delete().eq('listing_id', ...).eq('seller_id', ...)
+    // second .eq() is terminal — must resolve with error
+    let eqCallCount = 0;
+    const chain = {
+      delete: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockImplementation(() => {
+        eqCallCount++;
+        if (eqCallCount >= 2) return Promise.resolve({ error: { message: 'Delete failed' } });
+        return chain;
+      }),
+    };
+    global.supabase = { createClient: jest.fn(() => ({ auth: makeSb().createClient().auth, from: jest.fn(() => chain), storage: makeSb().createClient().storage })) };
+    const A = require('../auth.js').Auth;
     const r = await A.deleteListing({ listingId: 'l1', sellerId: 'u1' });
     expect(r.error).toBe('Delete failed');
   });
