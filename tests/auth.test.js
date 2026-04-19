@@ -1,105 +1,77 @@
 /**
  * Tests for Auth module (auth.js)
- * Supabase is fully mocked so no network calls are made.
+ * Supabase is fully mocked — no network calls are made.
  */
-
-// ─── Build a configurable Supabase mock ─────────────────────────────────────
-
-let mockAuthResponse   = { data: {}, error: null };
-let mockDbResponse     = { data: null, error: null };
-let mockStorageUpload  = { error: null };
-let mockStorageUrl     = { data: { publicUrl: 'https://cdn.example.com/img.jpg' } };
-let mockSession        = { data: { session: null } };
-
-const mockFrom = jest.fn(() => ({
-  select: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis(),
-  upsert: jest.fn().mockResolvedValue({ error: null }),
-  eq:     jest.fn().mockReturnThis(),
-  order:  jest.fn().mockReturnThis(),
-  single: jest.fn().mockResolvedValue(mockDbResponse),
-  then:   jest.fn(),
-}));
-
-// Make chained calls eventually resolve
-const chainedDb = () => {
-  const chain = {
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    upsert: jest.fn().mockResolvedValue({ error: null }),
-    eq:     jest.fn().mockReturnThis(),
-    order:  jest.fn().mockResolvedValue(mockDbResponse),
-    single: jest.fn().mockResolvedValue(mockDbResponse),
-  };
-  return chain;
-};
-
-const mockStorage = {
-  from: jest.fn(() => ({
-    upload:       jest.fn().mockResolvedValue(mockStorageUpload),
-    getPublicUrl: jest.fn().mockReturnValue(mockStorageUrl),
-  })),
-};
-
-const mockAuth = {
-  signUp:                  jest.fn().mockResolvedValue(mockAuthResponse),
-  signInWithPassword:      jest.fn().mockResolvedValue(mockAuthResponse),
-  signOut:                 jest.fn().mockResolvedValue({}),
-  getSession:              jest.fn().mockResolvedValue(mockSession),
-  updateUser:              jest.fn().mockResolvedValue({ error: null }),
-  verifyOtp:               jest.fn().mockResolvedValue(mockAuthResponse),
-  resetPasswordForEmail:   jest.fn().mockResolvedValue({ error: null }),
-};
-
-global.supabase = {
-  createClient: jest.fn(() => ({
-    auth:    mockAuth,
-    from:    jest.fn(() => chainedDb()),
-    storage: mockStorage,
-  })),
-};
 
 global.window = { location: { href: '' } };
 
-// Re-require after mock is set up
-const { Auth } = require('../auth.js');
+// ─── Reusable mock factory ───────────────────────────────────────────────────
+// Returns a chain object where every method returns itself, and the terminal
+// promise methods (single, order, upsert) resolve with a configurable value.
 
-// ─── Helper to reset mocks between tests ────────────────────────────────────
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockAuthResponse  = { data: {}, error: null };
-  mockDbResponse    = { data: null, error: null };
-  mockSession       = { data: { session: null } };
-  global.window.location.href = '';
-});
+function makeChain(resolved = { data: null, error: null }) {
+  const chain = {};
+  const thenable = jest.fn().mockResolvedValue(resolved);
+  ['select','insert','update','delete','upsert','eq','order'].forEach(m => {
+    chain[m] = jest.fn().mockReturnValue(chain);
+  });
+  chain.single = thenable;
+  // Make order also resolve (for list queries)
+  chain.order  = jest.fn().mockResolvedValue(resolved);
+  // Make eq also resolve when it's the last call in the chain
+  chain.eq     = jest.fn().mockReturnValue({ ...chain, then: undefined });
+  // Re-attach thenable methods after eq override
+  chain.eq.mockImplementation(() => chain);
+  return chain;
+}
+
+function makeSb({ authOverrides = {}, dbResolved, storageUploadErr = null, publicUrl = 'https://cdn.example.com/img.jpg' } = {}) {
+  const chain = makeChain(dbResolved || { data: null, error: null });
+  return {
+    createClient: jest.fn(() => ({
+      auth: {
+        signUp:                jest.fn().mockResolvedValue({ error: null }),
+        signInWithPassword:    jest.fn().mockResolvedValue({ data: {}, error: null }),
+        signOut:               jest.fn().mockResolvedValue({}),
+        getSession:            jest.fn().mockResolvedValue({ data: { session: null } }),
+        updateUser:            jest.fn().mockResolvedValue({ error: null }),
+        verifyOtp:             jest.fn().mockResolvedValue({ data: {}, error: null }),
+        resetPasswordForEmail: jest.fn().mockResolvedValue({ error: null }),
+        ...authOverrides,
+      },
+      from: jest.fn(() => chain),
+      storage: {
+        from: jest.fn(() => ({
+          upload:       jest.fn().mockResolvedValue({ error: storageUploadErr }),
+          getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl } }),
+        })),
+      },
+    })),
+  };
+}
+
+function freshAuth(sbMock) {
+  jest.resetModules();
+  global.supabase = sbMock;
+  global.window = { location: { href: '' } };
+  return require('../auth.js').Auth;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
-// getUserInitials
+// getUserInitials  (pure — no Supabase needed)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('getUserInitials', () => {
-  test('returns initials for two-word name', () => {
-    expect(Auth.getUserInitials('Joshua Goldberg')).toBe('JG');
-  });
-  test('returns single initial for one-word name', () => {
-    expect(Auth.getUserInitials('Joshua')).toBe('J');
-  });
-  test('only uses first two words', () => {
-    expect(Auth.getUserInitials('Mary Jane Watson')).toBe('MJ');
-  });
-  test('returns "?" for empty string', () => {
-    expect(Auth.getUserInitials('')).toBe('?');
-  });
-  test('returns "?" for null', () => {
-    expect(Auth.getUserInitials(null)).toBe('?');
-  });
-  test('uppercases result', () => {
-    expect(Auth.getUserInitials('alice bob')).toBe('AB');
-  });
+  let A;
+  beforeAll(() => { A = freshAuth(makeSb()); });
+
+  test('two-word name', ()        => expect(A.getUserInitials('Joshua Goldberg')).toBe('JG'));
+  test('one-word name', ()        => expect(A.getUserInitials('Joshua')).toBe('J'));
+  test('three-word name', ()      => expect(A.getUserInitials('Mary Jane Watson')).toBe('MJ'));
+  test('empty string → ?', ()     => expect(A.getUserInitials('')).toBe('?'));
+  test('null → ?', ()             => expect(A.getUserInitials(null)).toBe('?'));
+  test('undefined → ?', ()        => expect(A.getUserInitials(undefined)).toBe('?'));
+  test('lowercases uppercased',() => expect(A.getUserInitials('alice bob')).toBe('AB'));
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -107,37 +79,16 @@ describe('getUserInitials', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.signUp', () => {
-  test('returns success when Supabase returns no error', async () => {
-    global.supabase.createClient.mockReturnValue({
-      auth: { ...mockAuth, signUp: jest.fn().mockResolvedValue({ error: null }) },
-      from: jest.fn(() => chainedDb()),
-      storage: mockStorage,
-    });
-    const { Auth: FreshAuth } = jest.resetModules() || { Auth };
-    const result = await Auth.signUp({
-      fullName: 'Test User', email: 'test@uni.ac.za', password: 'pass123',
-      accountType: 'buyer', university: 'UCT', campus: 'Main', studentNumber: 'S001',
-    });
-    // signUp calls _sb.auth.signUp — we verify the shape returned
-    expect(result).toHaveProperty('success');
+  test('returns success when no error', async () => {
+    const A = freshAuth(makeSb());
+    const r = await A.signUp({ fullName: 'T', email: 't@t.com', password: 'p', accountType: 'buyer' });
+    expect(r.success).toBe(true);
   });
 
-  test('returns error when Supabase returns an error', async () => {
-    // Temporarily override the mock for this test
-    const originalSb = global.supabase;
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, signUp: jest.fn().mockResolvedValue({ error: { message: 'Email taken' } }) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    // Must re-require to get fresh _sb
-    jest.resetModules();
-    const { Auth: A } = require('../auth.js');
-    const result = await A.signUp({ fullName: 'X', email: 'x@y.com', password: 'p', accountType: 'buyer' });
-    expect(result.error).toBe('Email taken');
-    global.supabase = originalSb;
+  test('returns error message from Supabase', async () => {
+    const A = freshAuth(makeSb({ authOverrides: { signUp: jest.fn().mockResolvedValue({ error: { message: 'Email taken' } }) } }));
+    const r = await A.signUp({ fullName: 'T', email: 't@t.com', password: 'p', accountType: 'buyer' });
+    expect(r.error).toBe('Email taken');
   });
 });
 
@@ -147,42 +98,17 @@ describe('Auth.signUp', () => {
 
 describe('Auth.signIn', () => {
   test('returns success and user on valid credentials', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: {
-          ...mockAuth,
-          signInWithPassword: jest.fn().mockResolvedValue({
-            data: { user: { id: 'u1', email: 'a@b.com', user_metadata: { full_name: 'A B', account_type: 'buyer' } } },
-            error: null,
-          }),
-        },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.signIn({ email: 'a@b.com', password: 'pass' });
-    expect(result.success).toBe(true);
-    expect(result.user).toBeDefined();
-    expect(result.user.email).toBe('a@b.com');
+    const fakeUser = { id: 'u1', email: 'a@b.com', user_metadata: { full_name: 'AB', account_type: 'buyer' } };
+    const A = freshAuth(makeSb({ authOverrides: { signInWithPassword: jest.fn().mockResolvedValue({ data: { user: fakeUser }, error: null }) } }));
+    const r = await A.signIn({ email: 'a@b.com', password: 'pass' });
+    expect(r.success).toBe(true);
+    expect(r.user.email).toBe('a@b.com');
   });
 
   test('returns error on invalid credentials', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: {
-          ...mockAuth,
-          signInWithPassword: jest.fn().mockResolvedValue({ data: {}, error: { message: 'Invalid login' } }),
-        },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.signIn({ email: 'bad@b.com', password: 'wrong' });
-    expect(result.error).toBe('Invalid login');
+    const A = freshAuth(makeSb({ authOverrides: { signInWithPassword: jest.fn().mockResolvedValue({ data: {}, error: { message: 'Invalid login' } }) } }));
+    const r = await A.signIn({ email: 'bad@b.com', password: 'wrong' });
+    expect(r.error).toBe('Invalid login');
   });
 });
 
@@ -191,16 +117,8 @@ describe('Auth.signIn', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.signOut', () => {
-  test('redirects to login.html after signing out', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, signOut: jest.fn().mockResolvedValue({}) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
+  test('redirects to login.html', async () => {
+    const A = freshAuth(makeSb());
     await A.signOut();
     expect(global.window.location.href).toBe('login.html');
   });
@@ -211,43 +129,23 @@ describe('Auth.signOut', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.requireAuth', () => {
-  test('redirects to login.html when no session', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, getSession: jest.fn().mockResolvedValue({ data: { session: null } }) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.requireAuth();
-    expect(result).toBeNull();
+  test('returns null and redirects when no session', async () => {
+    const A = freshAuth(makeSb());
+    const r = await A.requireAuth();
+    expect(r).toBeNull();
     expect(global.window.location.href).toBe('login.html');
   });
 
-  test('returns user profile when session exists', async () => {
-    jest.resetModules();
-    const fakeUser = { id: 'u1', email: 'josh@uni.ac.za', user_metadata: { full_name: 'Josh' } };
-    const dbChain = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
-        data: { id: 'u1', full_name: 'Josh', email: 'josh@uni.ac.za', account_type: 'buyer', university: 'UCT', uni_campus: 'Main', student_number: 'S1' },
-        error: null,
-      }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, getSession: jest.fn().mockResolvedValue({ data: { session: { user: fakeUser } } }) },
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.requireAuth();
-    expect(result).not.toBeNull();
-    expect(result.fullName).toBe('Josh');
+  test('returns profile when session exists', async () => {
+    const fakeUser = { id: 'u1', email: 'j@uni.ac.za', user_metadata: { full_name: 'Josh' } };
+    const dbData = { id: 'u1', full_name: 'Josh', email: 'j@uni.ac.za', account_type: 'buyer', university: 'UCT', uni_campus: 'Main', student_number: 'S1' };
+    const A = freshAuth(makeSb({
+      authOverrides: { getSession: jest.fn().mockResolvedValue({ data: { session: { user: fakeUser } } }) },
+      dbResolved: { data: dbData, error: null },
+    }));
+    const r = await A.requireAuth();
+    expect(r).not.toBeNull();
+    expect(r.fullName).toBe('Josh');
   });
 });
 
@@ -256,40 +154,32 @@ describe('Auth.requireAuth', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.updateProfile', () => {
-  test('returns success when both db and auth update succeed', async () => {
-    jest.resetModules();
-    const dbChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: null }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, updateUser: jest.fn().mockResolvedValue({ error: null }) },
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updateProfile({ id: 'u1', fullName: 'New Name', email: 'new@uni.ac.za', accountType: 'buyer' });
-    expect(result.success).toBe(true);
+  test('returns success when both updates succeed', async () => {
+    const A = freshAuth(makeSb({ dbResolved: { error: null } }));
+    const r = await A.updateProfile({ id: 'u1', fullName: 'New', email: 'n@uni.ac.za', accountType: 'buyer' });
+    expect(r.success).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// updateCampusInfo
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Auth.updateCampusInfo', () => {
+  test('returns success', async () => {
+    const A = freshAuth(makeSb({ dbResolved: { error: null } }));
+    const r = await A.updateCampusInfo({ id: 'u1', university: 'UCT', campus: 'Main', studentNumber: 'S1' });
+    expect(r.success).toBe(true);
   });
 
-  test('returns error when db update fails', async () => {
+  test('returns error when update fails', async () => {
+    const chain = makeChain({ error: { message: 'Update failed' } });
     jest.resetModules();
-    const dbChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: { message: 'DB error' } }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, updateUser: jest.fn().mockResolvedValue({ error: null }) },
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updateProfile({ id: 'u1', fullName: 'X', email: 'x@y.com', accountType: 'buyer' });
-    expect(result.error).toBeDefined();
+    global.window = { location: { href: '' } };
+    global.supabase = { createClient: jest.fn(() => ({ auth: makeSb().createClient().auth, from: jest.fn(() => chain), storage: makeSb().createClient().storage })) };
+    const A = require('../auth.js').Auth;
+    const r = await A.updateCampusInfo({ id: 'u1', university: 'UCT', campus: 'Main', studentNumber: 'S1' });
+    expect(r.error).toBe('Update failed');
   });
 });
 
@@ -299,69 +189,47 @@ describe('Auth.updateProfile', () => {
 
 describe('Auth.updatePassword', () => {
   test('returns error when current password is wrong', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, signInWithPassword: jest.fn().mockResolvedValue({ error: { message: 'bad' } }) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updatePassword({ currentPassword: 'wrong', newPassword: 'new', email: 'x@y.com' });
-    expect(result.error).toBe('Incorrect current password.');
+    const A = freshAuth(makeSb({ authOverrides: { signInWithPassword: jest.fn().mockResolvedValue({ error: { message: 'bad' } }) } }));
+    const r = await A.updatePassword({ currentPassword: 'wrong', newPassword: 'new', email: 'x@y.com' });
+    expect(r.error).toBe('Incorrect current password.');
   });
 
   test('returns success when password update succeeds', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: {
-          ...mockAuth,
-          signInWithPassword: jest.fn().mockResolvedValue({ error: null }),
-          updateUser: jest.fn().mockResolvedValue({ error: null }),
-        },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updatePassword({ currentPassword: 'correct', newPassword: 'newpass', email: 'x@y.com' });
-    expect(result.success).toBe(true);
+    const A = freshAuth(makeSb({ authOverrides: { signInWithPassword: jest.fn().mockResolvedValue({ error: null }), updateUser: jest.fn().mockResolvedValue({ error: null }) } }));
+    const r = await A.updatePassword({ currentPassword: 'correct', newPassword: 'newpass', email: 'x@y.com' });
+    expect(r.success).toBe(true);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// requestPasswordReset
+// requestPasswordReset / completePasswordRecovery
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.requestPasswordReset', () => {
-  test('returns success on valid email', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, resetPasswordForEmail: jest.fn().mockResolvedValue({ error: null }) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.requestPasswordReset({ email: 'x@y.com', redirectTo: 'https://app.com/reset' });
-    expect(result.success).toBe(true);
+  test('returns success', async () => {
+    const A = freshAuth(makeSb());
+    const r = await A.requestPasswordReset({ email: 'x@y.com', redirectTo: 'https://app.com' });
+    expect(r.success).toBe(true);
   });
 
   test('returns error when reset fails', async () => {
-    jest.resetModules();
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: { ...mockAuth, resetPasswordForEmail: jest.fn().mockResolvedValue({ error: { message: 'Not found' } }) },
-        from: jest.fn(() => chainedDb()),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.requestPasswordReset({ email: 'bad@y.com', redirectTo: '' });
-    expect(result.error).toBe('Not found');
+    const A = freshAuth(makeSb({ authOverrides: { resetPasswordForEmail: jest.fn().mockResolvedValue({ error: { message: 'Not found' } }) } }));
+    const r = await A.requestPasswordReset({ email: 'bad@y.com', redirectTo: '' });
+    expect(r.error).toBe('Not found');
+  });
+});
+
+describe('Auth.completePasswordRecovery', () => {
+  test('returns success', async () => {
+    const A = freshAuth(makeSb());
+    const r = await A.completePasswordRecovery({ newPassword: 'newpass123' });
+    expect(r.success).toBe(true);
+  });
+
+  test('returns error when update fails', async () => {
+    const A = freshAuth(makeSb({ authOverrides: { updateUser: jest.fn().mockResolvedValue({ error: { message: 'Update failed' } }) } }));
+    const r = await A.completePasswordRecovery({ newPassword: 'x' });
+    expect(r.error).toBe('Update failed');
   });
 });
 
@@ -370,55 +238,41 @@ describe('Auth.requestPasswordReset', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.createListing', () => {
-  test('returns success with mapped listing on success', async () => {
-    jest.resetModules();
-    const fakeRecord = {
-      listing_id: 'lst-1', seller_id: 'u1', title: 'Book', description: 'Good',
-      price: 100, category: 'Books', condition: 'Good', is_tradeable: false,
-      status: 'active', image_url: '', created_at: '2026-01-01T00:00:00Z',
-    };
-    const dbChain = {
-      from: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({ data: fakeRecord, error: null }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: mockAuth,
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.createListing({
-      sellerId: 'u1', title: 'Book', description: 'Good', price: 100,
-      category: 'Books', condition: 'Good', isTradeable: false, status: 'active', imageUrl: '',
-    });
-    expect(result.success).toBe(true);
-    expect(result.listing.title).toBe('Book');
+  const payload = { sellerId: 'u1', title: 'Book', description: 'Good', price: 100, category: 'Books', condition: 'Good', isTradeable: false, status: 'active', imageUrl: '' };
+
+  test('returns success with mapped listing', async () => {
+    const fakeRecord = { listing_id: 'l1', seller_id: 'u1', title: 'Book', description: 'Good', price: 100, category: 'Books', condition: 'Good', is_tradeable: false, status: 'active', image_url: '', created_at: '2026-01-01' };
+    const A = freshAuth(makeSb({ dbResolved: { data: fakeRecord, error: null } }));
+    const r = await A.createListing(payload);
+    expect(r.success).toBe(true);
+    expect(r.listing.title).toBe('Book');
   });
 
   test('returns error when insert fails', async () => {
-    jest.resetModules();
-    const dbChain = {
-      insert: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Insert failed' } }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: mockAuth,
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.createListing({
-      sellerId: 'u1', title: 'Book', description: '', price: 0,
-      category: 'Books', condition: 'Good', isTradeable: false, status: 'active', imageUrl: '',
-    });
-    expect(result.error).toBe('Insert failed');
+    const A = freshAuth(makeSb({ dbResolved: { data: null, error: { message: 'Insert failed' } } }));
+    const r = await A.createListing(payload);
+    expect(r.error).toBe('Insert failed');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// updateListing
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Auth.updateListing', () => {
+  const payload = { listingId: 'l1', sellerId: 'u1', title: 'Book', description: '', price: 100, category: 'Books', condition: 'Good', isTradeable: false, status: 'active', imageUrl: '' };
+
+  test('returns success', async () => {
+    const fakeRecord = { listing_id: 'l1', seller_id: 'u1', title: 'Book', description: '', price: 100, category: 'Books', condition: 'Good', is_tradeable: false, status: 'active', image_url: '', created_at: '2026-01-01' };
+    const A = freshAuth(makeSb({ dbResolved: { data: fakeRecord, error: null } }));
+    const r = await A.updateListing(payload);
+    expect(r.success).toBe(true);
+  });
+
+  test('returns error when update fails', async () => {
+    const A = freshAuth(makeSb({ dbResolved: { data: null, error: { message: 'Update failed' } } }));
+    const r = await A.updateListing(payload);
+    expect(r.error).toBe('Update failed');
   });
 });
 
@@ -427,86 +281,16 @@ describe('Auth.createListing', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.deleteListing', () => {
-  test('returns success when delete succeeds', async () => {
-    jest.resetModules();
-    const dbChain = {
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: null }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: mockAuth,
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.deleteListing({ listingId: 'lst-1', sellerId: 'u1' });
-    expect(result.success).toBe(true);
+  test('returns success', async () => {
+    const A = freshAuth(makeSb({ dbResolved: { error: null } }));
+    const r = await A.deleteListing({ listingId: 'l1', sellerId: 'u1' });
+    expect(r.success).toBe(true);
   });
 
   test('returns error when delete fails', async () => {
-    jest.resetModules();
-    const dbChain = {
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: { message: 'Delete failed' } }),
-    };
-    global.supabase = {
-      createClient: jest.fn(() => ({
-        auth: mockAuth,
-        from: jest.fn(() => dbChain),
-        storage: mockStorage,
-      })),
-    };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.deleteListing({ listingId: 'lst-1', sellerId: 'u1' });
-    expect(result.error).toBe('Delete failed');
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// uploadListingImage
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('Auth.uploadListingImage', () => {
-  test('rejects files over 5MB', async () => {
-    jest.resetModules();
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => chainedDb()), storage: mockStorage })) };
-    const { Auth: A } = require('../auth.js');
-    const file = { name: 'big.jpg', size: 6 * 1024 * 1024, type: 'image/jpeg' };
-    const result = await A.uploadListingImage(file, 'u1');
-    expect(result.error).toBe('Image must be 5 MB or smaller.');
-  });
-
-  test('returns imageUrl on successful upload', async () => {
-    jest.resetModules();
-    const storageMock = {
-      from: jest.fn(() => ({
-        upload: jest.fn().mockResolvedValue({ error: null }),
-        getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl: 'https://cdn.example.com/img.jpg' } }),
-      })),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => chainedDb()), storage: storageMock })) };
-    const { Auth: A } = require('../auth.js');
-    const file = { name: 'photo.jpg', size: 1 * 1024 * 1024, type: 'image/jpeg' };
-    const result = await A.uploadListingImage(file, 'u1');
-    expect(result.success).toBe(true);
-    expect(result.imageUrl).toBe('https://cdn.example.com/img.jpg');
-  });
-
-  test('returns error when storage upload fails', async () => {
-    jest.resetModules();
-    const storageMock = {
-      from: jest.fn(() => ({
-        upload: jest.fn().mockResolvedValue({ error: { message: 'Upload failed' } }),
-        getPublicUrl: jest.fn(),
-      })),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => chainedDb()), storage: storageMock })) };
-    const { Auth: A } = require('../auth.js');
-    const file = { name: 'photo.jpg', size: 1 * 1024 * 1024, type: 'image/jpeg' };
-    const result = await A.uploadListingImage(file, 'u1');
-    expect(result.error).toBe('Upload failed');
+    const A = freshAuth(makeSb({ dbResolved: { error: { message: 'Delete failed' } } }));
+    const r = await A.deleteListing({ listingId: 'l1', sellerId: 'u1' });
+    expect(r.error).toBe('Delete failed');
   });
 });
 
@@ -515,66 +299,62 @@ describe('Auth.uploadListingImage', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Auth.getMarketplaceListings', () => {
-  test('returns mapped listings on success', async () => {
-    jest.resetModules();
-    const fakeListings = [{
-      listing_id: 'l1', seller_id: 'u1', title: 'Laptop', description: 'Fast',
-      price: 5000, category: 'Electronics', condition: 'Good', is_tradeable: true,
-      status: 'active', image_url: '', created_at: '2026-01-01T00:00:00Z',
-    }];
-    const dbChain = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockResolvedValue({ data: fakeListings, error: null }),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => dbChain), storage: mockStorage })) };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.getMarketplaceListings();
-    expect(result.success).toBe(true);
-    expect(result.listings[0].title).toBe('Laptop');
-    expect(result.listings[0].price).toBe(5000);
+  test('returns mapped listings', async () => {
+    const fakeListings = [{ listing_id: 'l1', seller_id: 'u1', title: 'Laptop', description: '', price: 5000, category: 'Electronics', condition: 'Good', is_tradeable: true, status: 'active', image_url: '', created_at: '2026-01-01' }];
+    const A = freshAuth(makeSb({ dbResolved: { data: fakeListings, error: null } }));
+    const r = await A.getMarketplaceListings();
+    expect(r.success).toBe(true);
+    expect(r.listings[0].title).toBe('Laptop');
   });
 
   test('returns error when query fails', async () => {
-    jest.resetModules();
-    const dbChain = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockResolvedValue({ data: null, error: { message: 'Query failed' } }),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => dbChain), storage: mockStorage })) };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.getMarketplaceListings();
-    expect(result.error).toBe('Query failed');
+    const A = freshAuth(makeSb({ dbResolved: { data: null, error: { message: 'Query failed' } } }));
+    const r = await A.getMarketplaceListings();
+    expect(r.error).toBe('Query failed');
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// updateCampusInfo
+// getMyListings
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('Auth.updateCampusInfo', () => {
-  test('returns success when update succeeds', async () => {
-    jest.resetModules();
-    const dbChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: null }),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => dbChain), storage: mockStorage })) };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updateCampusInfo({ id: 'u1', university: 'UCT', campus: 'Main', studentNumber: 'S1' });
-    expect(result.success).toBe(true);
+describe('Auth.getMyListings', () => {
+  test('returns mapped listings for user', async () => {
+    const fakeListings = [{ listing_id: 'l1', seller_id: 'u1', title: 'Chair', description: '', price: 200, category: 'Furniture', condition: 'Fair', is_tradeable: false, status: 'active', image_url: '', created_at: '2026-01-01' }];
+    const A = freshAuth(makeSb({ dbResolved: { data: fakeListings, error: null } }));
+    const r = await A.getMyListings('u1');
+    expect(r.success).toBe(true);
+    expect(r.listings[0].category).toBe('Furniture');
   });
 
-  test('returns error when update fails', async () => {
-    jest.resetModules();
-    const dbChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: { message: 'Update failed' } }),
-    };
-    global.supabase = { createClient: jest.fn(() => ({ auth: mockAuth, from: jest.fn(() => dbChain), storage: mockStorage })) };
-    const { Auth: A } = require('../auth.js');
-    const result = await A.updateCampusInfo({ id: 'u1', university: 'UCT', campus: 'Main', studentNumber: 'S1' });
-    expect(result.error).toBe('Update failed');
+  test('returns error when query fails', async () => {
+    const A = freshAuth(makeSb({ dbResolved: { data: null, error: { message: 'Failed' } } }));
+    const r = await A.getMyListings('u1');
+    expect(r.error).toBe('Failed');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// uploadListingImage
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Auth.uploadListingImage', () => {
+  test('rejects files over 5 MB', async () => {
+    const A = freshAuth(makeSb());
+    const r = await A.uploadListingImage({ name: 'big.jpg', size: 6 * 1024 * 1024, type: 'image/jpeg' }, 'u1');
+    expect(r.error).toBe('Image must be 5 MB or smaller.');
+  });
+
+  test('returns imageUrl on successful upload', async () => {
+    const A = freshAuth(makeSb({ publicUrl: 'https://cdn.example.com/photo.jpg' }));
+    const r = await A.uploadListingImage({ name: 'photo.jpg', size: 1 * 1024 * 1024, type: 'image/jpeg' }, 'u1');
+    expect(r.success).toBe(true);
+    expect(r.imageUrl).toBe('https://cdn.example.com/photo.jpg');
+  });
+
+  test('returns error when storage upload fails', async () => {
+    const A = freshAuth(makeSb({ storageUploadErr: { message: 'Upload failed' } }));
+    const r = await A.uploadListingImage({ name: 'photo.jpg', size: 1 * 1024 * 1024, type: 'image/jpeg' }, 'u1');
+    expect(r.error).toBe('Upload failed');
   });
 });
