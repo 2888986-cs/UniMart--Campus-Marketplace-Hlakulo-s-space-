@@ -354,9 +354,13 @@
     if (recoveryMode) {
       showStep('step-reset-password');
     } else {
-      Auth.getUser().then(user => {
-        if (user) window.location.href = 'search.html';
-      });
+      setTimeout(() => {
+        if (!recoveryMode) {
+          Auth.getUser().then(user => {
+            if (user) window.location.href = 'search.html';
+          });
+        }
+      }, 500);
     }
   </script>
 </body>
