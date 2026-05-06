@@ -2,8 +2,8 @@
  * UniMart — Auth module (Supabase)
  */
  
-const SUPABASE_URL      = 'https://xdxnzkowvmphveiwzufm.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_WqqtaVhge6rIPosltnGktw_xVHBE5L_';
+const SUPABASE_URL      = 'https://ogfstiauenowebopdrzx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_wr9cDXmNIUepPjt-VtvSPA_TOlEUFps';
 const LISTING_IMAGE_BUCKET = 'listing-images';
 const LISTING_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
  
