@@ -349,12 +349,36 @@
       clearRecoveryUrl();
     });
 
-    _sb.auth.onAuthStateChange((event) => {
+    _sb.auth.onAuthStateChange(async (event, session) => {
+
       if (event === 'PASSWORD_RECOVERY') {
         recoveryMode = true;
         clearErrors();
         hideResetPasswordSuccess();
         showStep('step-reset-password');
+      }
+
+      // GOOGLE / AUTH LOGIN HANDLER
+      if (event === 'SIGNED_IN' && session) {
+        const user = session.user;
+
+      // check if user exists in your DB
+        const { data } = await _sb
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (!data) {
+          //  New user, send to signup with prefilled data
+          const name = encodeURIComponent(user.user_metadata.full_name || '');
+          const email = encodeURIComponent(user.email);
+
+          window.location.href = `signup.html?name=${name}&email=${email}`;
+        } else {
+          // Existing user
+          window.location.href = 'search.html';
+        }
       }
     });
 
