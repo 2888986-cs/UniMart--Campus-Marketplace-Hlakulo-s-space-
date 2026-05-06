@@ -188,6 +188,17 @@
         this.querySelector('input[type="radio"]').checked = true;
       });
     });
+
+    // Prefill from Google Auth
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+
+      const name = params.get('name');
+      const email = params.get('email');
+
+      if (name) document.getElementById('full-name').value = decodeURIComponent(name);
+      if (email) document.getElementById('signup-email').value = decodeURIComponent(email);
+    });
  
     /* ---- Password toggles ---- */
     const passwordToggleIcons = {
