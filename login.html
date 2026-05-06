@@ -400,7 +400,7 @@
       const { error } = await _sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://unimart-app-e2gaadawhwf6bng3.southafricanorth-01.azurewebsites.net/login.html'
+          redirectTo: window.location.origin + '/login.html'
         }
       });
 
