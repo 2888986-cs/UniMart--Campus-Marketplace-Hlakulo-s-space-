@@ -370,6 +370,20 @@
         }
       }, 500);
     }
+
+    // Google Login
+    document.getElementById('google-login-btn').addEventListener('click', async () => {
+      const { error } = await _sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'https://unimart-app-e2gaadawhwf6bng3.southafricanorth-01.azurewebsites.net/login.html'
+        }
+      });
+
+      if (error) {
+        showError('login-error', error.message);
+      }
+    });
   </script>
 </body>
 </html>
