@@ -30,6 +30,20 @@ const Auth = (() => {
     if (error) return { error: error.message };
     return { success: true, user: _buildUser(data.user) };
   }
+
+  /* ---------- google sign-in ---------- */
+  async function signInWithGoogle() {
+    const { error } = await _sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/login.html'
+      }
+    });
+
+    if (error) return { error: error.message };
+      return { success: true };
+  }
+ 
  
   /* ---------- OTP verification (sign-up email confirmation) ---------- */
   async function verifyOTP(email, token) {
@@ -388,7 +402,7 @@ const Auth = (() => {
     };
   }
  
-  return { signUp, signIn, verifyOTP, signOut, requireAuth, getUser, getUserInitials, updateProfile, updateCampusInfo, updatePassword, requestPasswordReset, completePasswordRecovery, getListingDashboard, getMarketplaceListings, getMyListings, createListing, updateListing, deleteListing, uploadListingImage };
+  return { signUp, signIn, verifyOTP, signOut, requireAuth, getUser, getUserInitials, updateProfile, updateCampusInfo, updatePassword, requestPasswordReset, completePasswordRecovery, getListingDashboard, getMarketplaceListings, getMyListings, createListing, updateListing, deleteListing, uploadListingImage, signInWithGoogle };
 })();
 
 if (typeof module !== 'undefined') {
