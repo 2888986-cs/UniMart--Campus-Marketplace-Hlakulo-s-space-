@@ -357,6 +357,7 @@
         hideResetPasswordSuccess();
         showStep('step-reset-password');
       }
+      
 
       // GOOGLE / AUTH LOGIN HANDLER
       if (event === 'SIGNED_IN' && session) {
@@ -379,6 +380,18 @@
           // Existing user
           window.location.href = 'search.html';
         }
+      }
+    });
+
+    _sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+
+        // kill the ugly localhost redirect loop
+        if (window.location.hostname === 'localhost') {
+          window.location.href = 'https://unimart-app-e2gaadawhwf6bng3.southafricanorth-01.azurewebsites.net/login.html';
+          return;
+        }
+
       }
     });
 
